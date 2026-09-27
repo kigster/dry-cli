@@ -32,6 +32,48 @@ module Dry
     # end
     # ```
     #
+    # A command registered as an instance is also used for every call to the CLI, each time with
+    # the streams of that call. That is the case in a test suite that runs the CLI in-process (see
+    # {Dry::CLI::Launcher}), where each test gives it a StringIO of its own. Memoize an object built
+    # from a stream against that stream, so it is built again when the stream changes:
+    #
+    # ```
+    # def logger
+    #   @logger = nil unless @logger_stream.equal?(stdout)
+    #   @logger_stream = stdout
+    #   @logger ||= Logger.new(stdout)
+    # end
+    # ```
+    #
+    # ## Dependencies
+    #
+    # Commands work with [dry-auto_inject](https://dry-rb.org/gems/dry-auto_inject/), and so with
+    # the containers of [dry-system](https://dry-rb.org/gems/dry-system/). Include the dependencies
+    # every command shares in your CLI's base command:
+    #
+    # ```
+    # Deps = Dry::AutoInject(MyApp::Container)
+    #
+    # class BaseCommand < Dry::CLI::Command
+    #   include Deps["logger", "config"]
+    # end
+    # ```
+    #
+    # As with any class using dry-auto_inject, a subclass defining its own `#initialize` must call
+    # `super(**)`, since the injected dependencies are assigned there:
+    #
+    # ```
+    # class Deploy < BaseCommand
+    #   def initialize(target: "production", **)
+    #     super(**)
+    #     @target = target
+    #   end
+    # end
+    # ```
+    #
+    # Dependencies that need the command's streams can't come from a container, which has no way
+    # to know them. Build those in the command instead, as above.
+    #
     # @since 0.1.0
     class Command
       include StyleMixin
