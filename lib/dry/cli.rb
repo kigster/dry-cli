@@ -127,6 +127,18 @@ module Dry
       # no op
     end
 
+    # Returns a read-only view of the commands this CLI runs.
+    #
+    # @return [Dry::CLI::Tree::Node] the root: the command itself for a single-command CLI, and
+    #   otherwise a node whose children are the top-level commands
+    #
+    # @since x.y.z
+    #
+    # @see Dry::CLI::Tree
+    def tree
+      kommand ? Tree.for(kommand) : registry.tree
+    end
+
     private
 
     # @since 0.6.0
