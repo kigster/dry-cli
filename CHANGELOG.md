@@ -122,6 +122,7 @@ and this project adheres to [Break Versioning](https://www.taoensso.com/break-ve
     ```
 
     With nothing configured, help is rendered exactly as before.
+- Documentation and specs for injecting dependencies into commands with dry-auto_inject and dry-system, and for memoizing objects built from a command's streams. (@kigster)
 
 ### Changed
 
