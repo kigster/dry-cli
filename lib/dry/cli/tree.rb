@@ -314,10 +314,12 @@ module Dry
           "#<#{self.class.name} #{path.join(" ").inspect}>"
         end
 
-        protected
-
+        # @return [CommandRegistry::Node] the registration this node views
+        #
         # @api private
         attr_reader :source
+
+        protected
 
         # @api private
         def child(name)

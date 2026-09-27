@@ -107,6 +107,21 @@ and this project adheres to [Break Versioning](https://www.taoensso.com/break-ve
     ```
 
     Each option and argument is a `Dry::CLI::Tree::Param`, which also carries every key it was declared with, so an extension can read keys of its own, such as `file: true`.
+- `Dry::CLI.configure`, `Dry::CLI::Config` and `Dry::CLI::Screen`, for changing how help is rendered without overriding private methods. (@kigster)
+
+    Help and command listings are now built as a `Dry::CLI::Screen`, which goes through a renderer and then a list of filters before it is printed. Each is anything that responds to `#call`, taking a screen and returning a screen, so they compose with `>>`. A filter can change the text, and also the exit status, which decides whether the screen goes to stdout or stderr.
+
+    ```ruby
+    Dry::CLI.configure do |config|
+      config.help.renderer = MyGem::Renderer                                     # fills in screen.text
+      config.help.filters << ->(screen) { screen.with(text: rewrap(screen.text)) }
+      config.help.filters << ->(screen) { screen.reason == :help ? screen.with(status: 0) : screen }
+    end
+
+    Dry.CLI(MyApp::Commands, config: my_config) # settings for one CLI only
+    ```
+
+    With nothing configured, help is rendered exactly as before.
 
 ### Changed
 
