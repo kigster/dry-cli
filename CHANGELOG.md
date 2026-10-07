@@ -134,6 +134,20 @@ and this project adheres to [Break Versioning](https://www.taoensso.com/break-ve
       s.run { sleep 6 }
     end
     ```
+- `Registry#tree`, `Dry::CLI#tree` and `Dry::CLI::Tree`, a read-only view of a CLI's commands, for gems that describe a CLI rather than run it: help screens, shell completion and documentation generators. (@kigster)
+
+    The view is live, so a command registered after the tree was taken is still in it. `#resolve` finds the command a command line would run, by the same rules the CLI uses.
+
+    ```ruby
+    tree = MyApp::Commands.tree
+
+    tree.walk(hidden: false) { |node| puts node.path.join(" ") }
+    tree.dig("db", "migrate").options.map(&:switches) # => [["-f", "--force"]]
+
+    node, rest = tree.resolve(%w[db migrate --force])
+    ```
+
+    Each option and argument is a `Dry::CLI::Tree::Param`, which also carries every key it was declared with, so an extension can read keys of its own, such as `file: true`.
 
 ### Changed
 
