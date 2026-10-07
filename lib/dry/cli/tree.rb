@@ -75,18 +75,30 @@ module Dry
         #
         # @api private
         def self.from(param)
+          metadata = param.options.transform_values { |value| frozen_copy(value) }.freeze
+
           new(
             name: param.name.to_sym,
             kind: param.argument? ? :argument : :option,
             type: param.type,
-            desc: param.options[:desc],
+            desc: metadata[:desc],
             required: !!param.required?,
-            default: param.default,
+            default: metadata[:default],
             values: param.values&.dup&.freeze,
-            aliases: param.aliases.dup.freeze,
+            aliases: metadata.fetch(:aliases, []),
             switches: (param.argument? ? [] : switches_for(param)).freeze,
-            metadata: param.options.dup.freeze
+            metadata:
           )
+        end
+
+        # Copies what the caller could otherwise mutate the declaration through.
+        #
+        # @api private
+        def self.frozen_copy(value)
+          case value
+          when Array, Hash, String then value.dup.freeze
+          else value
+          end
         end
 
         # @api private
@@ -97,7 +109,7 @@ module Dry
 
           short + long
         end
-        private_class_method :switches_for
+        private_class_method :frozen_copy, :switches_for
 
         # @return [Boolean]
         def required? = required

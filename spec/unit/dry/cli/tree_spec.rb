@@ -130,6 +130,16 @@ RSpec.describe Dry::CLI::Tree do
       it { expect(param.metadata).to include(file: true) }
     end
 
+    describe "the values it carries" do
+      let(:declared) { root["options-with-aliases"].command.options.first }
+
+      it { expect { option.desc << "!" }.to raise_error(FrozenError) }
+
+      it "leaves the declaration as it was" do
+        expect { option.metadata[:aliases] << "-x" }.to raise_error(FrozenError)
+        expect(declared.aliases).to eq(%w[-u u --u])
+      end
+    end
   end
 
   describe "#resolve" do
