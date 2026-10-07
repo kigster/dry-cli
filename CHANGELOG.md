@@ -47,6 +47,7 @@ and this project adheres to [Break Versioning](https://www.taoensso.com/break-ve
     ```
 
     `Command#stdout` and `#stderr` are now always instances of `Dry::CLI::Stream`. Use `stdout.raw` to access the underlying IO object directly.
+
 - `Dry::CLI::Command#auto_initialize`, for taking select keywords that `.new` assigns itself, rather than passing on to `#initialize`. (@timriley in #167)
 
     It is common for a CLI app to set up "standard" dependencies that can be provided to every command class. Making these auto-initialized keywords keeps each command's `#initialize` focused on its own distinct dependencies, while the standard dependencies are still assigned as expected. Command class authors do not need to supply `**kwargs` as an `#initialize` parameter and then call `super(**kwargs)`, which reduces boilerplate, as well as the chance of bugs from these lines being forgotten.
@@ -74,6 +75,7 @@ and this project adheres to [Break Versioning](https://www.taoensso.com/break-ve
     ```ruby
     style.bold.red["%s"] % "boom" # => "\e[1;31mboom\e[0m"
     ```
+
 - `kernel:` for `Dry::CLI#call` and `Dry::CLI::Command.new`, and `Dry::CLI::Launcher`, for running a CLI in the same process as its tests. (@kigster)
 
     The CLI and its commands now exit through the kernel they are given, which defaults to `Kernel`. A test can pass an object that records the exit status instead of ending the process. Inside a command, `exit` goes to `#kernel`, so a command's own `exit(1)` is recorded too.
@@ -93,36 +95,51 @@ and this project adheres to [Break Versioning](https://www.taoensso.com/break-ve
       config.main_class       = MyApp::Launcher
     end
     ```
-- `Registry#tree`, `Dry::CLI#tree` and `Dry::CLI::Tree`, a read-only view of a CLI's commands, for gems that describe a CLI rather than run it: help screens, shell completion and documentation generators. (@kigster)
 
-    The view is live, so a command registered after the tree was taken is still in it. `#resolve` finds the command a command line would run, by the same rules the CLI uses.
-
-    ```ruby
-    tree = MyApp::Commands.tree
-
-    tree.walk(hidden: false) { |node| puts node.path.join(" ") }
-    tree.dig("db", "migrate").options.map(&:switches) # => [["-f", "--force"]]
-
-    node, rest = tree.resolve(%w[db migrate --force])
-    ```
-
-    Each option and argument is a `Dry::CLI::Tree::Param`, which also carries every key it was declared with, so an extension can read keys of its own, such as `file: true`.
-- `Dry::CLI.configure`, `Dry::CLI::Config` and `Dry::CLI::Screen`, for changing how help is rendered without overriding private methods. (@kigster)
-
-    Help and command listings are now built as a `Dry::CLI::Screen`, which goes through a renderer and then a list of filters before it is printed. Each is anything that responds to `#call`, taking a screen and returning a screen, so they compose with `>>`. A filter can change the text, and also the exit status, which decides whether the screen goes to stdout or stderr.
-
-    ```ruby
-    Dry::CLI.configure do |config|
-      config.help.renderer = MyGem::Renderer                                     # fills in screen.text
-      config.help.filters << ->(screen) { screen.with(text: rewrap(screen.text)) }
-      config.help.filters << ->(screen) { screen.reason == :help ? screen.with(status: 0) : screen }
-    end
-
-    Dry.CLI(MyApp::Commands, config: my_config) # settings for one CLI only
-    ```
-
-    With nothing configured, help is rendered exactly as before.
 - Documentation and specs for injecting dependencies into commands with dry-auto_inject and dry-system, and for memoizing objects built from a command's streams. (@kigster)
+
+- Enforce `required: true` on options. (@capripot and @timriley in #122)
+
+    Before, `required: true` was accepted on options but did nothing. Now, if a required option is not given, the command does not run, and prints an error that names the missing option. Required options are marked as REQUIRED in the help output. A required option with a `default:` always has a value, so it is not enforced and not marked as required.
+
+    If your commands already declare options with `required: true` and no default, they will now fail when the user leaves those options out.
+
+- `Dry::CLI::Spinner`: a simple, animated spinner for long-running tasks. (@alassek in #169)
+
+    Four default styles: Dot, Ellipsis, Line, MiniDot.
+
+    The simplest case is a block to run the task and a static message to display (supports styled text):
+
+    ```ruby
+    Dry::CLI::Spinner::Dot.run("%{spinner} working...") do
+      sleep 3
+    end
+    ```
+
+    If you require more control, you can provide a block argument and register `before_tick` and `after_tick` callbacks:
+
+    ```ruby
+    template =  style.bold.green["%{spinner}"]
+    template += style.italic.dim[" waiting "]
+    template += style.bold.white["%{num}"]
+    template += style.italic.dim[" seconds"]
+
+    Dry::CLI::Spinner::MiniDot.run(template) do |s|
+      trailer = Dry::CLI::Spinner::Ellipsis.frames.cycle
+      start   = Time.now
+
+      s.before_tick do |_stream, data|
+        data[:num] = (Time.now - start).ceil
+      end
+
+      s.after_tick do |stream|
+        stream << style.italic.dim[trailer.next]
+      end
+
+      s.run { sleep 6 }
+    end
+    ```
+
 
 ### Changed
 
