@@ -105,7 +105,7 @@ module Dry
         def self.switches_for(option)
           name = Inflector.dasherize(option.name)
           long = option.boolean? ? ["--#{name}", "--no-#{name}"] : ["--#{name}"]
-          short = option.alias_names.map { _1.split(" ").first }
+          short = option.alias_names.map { |alias_name| alias_name.split(" ").first }
 
           short + long
         end
@@ -346,7 +346,7 @@ module Dry
           registered = command
           return [] unless registered.respond_to?(kind)
 
-          registered.public_send(kind).map { Param.from(_1) }
+          registered.public_send(kind).map { |param| Param.from(param) }
         end
       end
     end

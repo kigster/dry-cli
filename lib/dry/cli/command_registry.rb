@@ -55,37 +55,34 @@ module Dry
       # so the two can't disagree.
       #
       # @param node [Node] the node to start from
-      # @param arguments [Array<String>] the command line arguments
+      # @param words [Array<String>] the command line arguments
       #
       # @return [LookupResult]
       #
       # @api private
-      def self.lookup(node, arguments)
-        args   = []
-        names  = []
+      def self.lookup(node, words)
+        arguments = []
+        names = []
         valid_leaf = nil
-        result = LookupResult.new(node, args, names, node.leaf?)
+        result = LookupResult.new(node, arguments, names, node.leaf?)
 
-        arguments.each_with_index do |token, i|
-          tmp = node.lookup(token)
+        words.each_with_index do |word, index|
+          child = node.lookup(word)
 
-          if tmp.nil? && valid_leaf
-            result = valid_leaf
+          if child.nil?
+            result = valid_leaf || LookupResult.new(node, arguments, names, false)
             break
-          elsif tmp.nil?
-            result = LookupResult.new(node, args, names, false)
-            break
-          elsif tmp.leaf?
-            args   = arguments[i + 1..]
-            names  = arguments[0..i]
-            node   = tmp
-            result = LookupResult.new(node, args, names, true)
-            valid_leaf = result
-            break unless tmp.children?
+          end
+
+          node = child
+          names = words[0..index]
+
+          if child.leaf?
+            arguments = words[index + 1..]
+            result = valid_leaf = LookupResult.new(node, arguments, names, true)
+            break unless child.children?
           else
-            names  = arguments[0..i]
-            node   = tmp
-            result = LookupResult.new(node, args, names, node.leaf?)
+            result = LookupResult.new(node, arguments, names, false)
           end
         end
 
