@@ -32,6 +32,48 @@ module Dry
     # end
     # ```
     #
+    # A command registered as an instance is also used for every call to the CLI, each time with
+    # the streams of that call. That is the case in a test suite that runs the CLI in-process (see
+    # {Dry::CLI::Launcher}), where each test gives it a StringIO of its own. Memoize an object built
+    # from a stream against that stream, so it is built again when the stream changes:
+    #
+    # ```
+    # def logger
+    #   @logger = nil unless @logger_stream.equal?(stdout)
+    #   @logger_stream = stdout
+    #   @logger ||= Logger.new(stdout)
+    # end
+    # ```
+    #
+    # ## Dependencies
+    #
+    # Commands work with [dry-auto_inject](https://dry-rb.org/gems/dry-auto_inject/), and so with
+    # the containers of [dry-system](https://dry-rb.org/gems/dry-system/). Include the dependencies
+    # every command shares in your CLI's base command:
+    #
+    # ```
+    # Deps = Dry::AutoInject(MyApp::Container)
+    #
+    # class BaseCommand < Dry::CLI::Command
+    #   include Deps["logger", "config"]
+    # end
+    # ```
+    #
+    # As with any class using dry-auto_inject, a subclass defining its own `#initialize` must call
+    # `super(**)`, since the injected dependencies are assigned there:
+    #
+    # ```
+    # class Deploy < BaseCommand
+    #   def initialize(target: "production", **)
+    #     super(**)
+    #     @target = target
+    #   end
+    # end
+    # ```
+    #
+    # Dependencies that need the command's streams can't come from a container, which has no way
+    # to know them. Build those in the command instead, as above.
+    #
     # @since 0.1.0
     class Command
       include StyleMixin
@@ -374,6 +416,34 @@ module Dry
       #   #
       #   # Options:
       #   #   --port=VALUE, -p VALUE
+      #
+      # @example Required
+      #   require "dry/cli"
+      #
+      #   class Deploy < Dry::CLI::Command
+      #     option :env, required: true, desc: "The target environment"
+      #
+      #     def call(env:, **)
+      #       puts "deploying to #{env}"
+      #     end
+      #   end
+      #
+      #   # $ foo deploy --env=production
+      #   # deploying to production
+      #
+      #   # $ foo deploy
+      #   # ERROR: "foo deploy" is missing required option --env
+      #   # Usage: "foo deploy --env=VALUE"
+      #
+      #   # $ foo deploy --help
+      #   # # ...
+      #   #
+      #   # Options:
+      #   #   --env=VALUE  # REQUIRED The target environment
+      #   #   --help, -h   # Print this help
+      #
+      #   # A required option with a default always has a value, so it is not
+      #   # enforced and not shown as REQUIRED.
       def self.option(name, options = {})
         new_op = Option.new(name, options)
 
@@ -435,6 +505,11 @@ module Dry
         end
       end
       # rubocop:enable Metrics/PerceivedComplexity
+
+      # @api private
+      def self.required_options
+        options.select(&:required?)
+      end
 
       # @since 0.7.0
       # @api private
@@ -550,16 +625,17 @@ module Dry
       extend Forwardable
 
       delegate %i[
+        arguments
+        arguments_sorted_by_usage_order
+        default_params
         description
         long_description
         examples
-        arguments
+        optional_arguments
         options
         params
-        default_params
         required_arguments
-        optional_arguments
-        arguments_sorted_by_usage_order
+        required_options
         subcommands
       ] => "self.class"
 
